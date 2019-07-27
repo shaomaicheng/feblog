@@ -2,6 +2,8 @@
 
 ## 简介
 
+Flutter 是 Google 的一套跨平台 UI 框架。目前已经是 1.7 的 Release 版本。在移动端双端投入人力较大，短期紧急需求的背景下。跨端技术会成为越来越多的移动端技术栈选择。铭师堂移动端团队在过去几个月，对 Flutter 技术做了一些尝试和工作。这篇文章将会对 Flutter 的基本原理和我们在 `升学e网通 APP` 的工程实践做一个简单的分享。
+
 ## Flutter 的架构和原理
 
 Flutter framework 层的架构图如下：
@@ -9,7 +11,7 @@ Flutter framework 层的架构图如下：
 
 ![](https://user-gold-cdn.xitu.io/2019/5/31/16b0d208ec0130fc?w=1692&h=626&f=png&s=35353)
 
- 
+ s
  **Foundation**: foundation 提供了 framework 经常使用的一些基础类，包括但不限于：
 
  * BindBase: 提供了提供单例服务的对象基类，提供了 Widgets、Render、Gestures等能力
@@ -223,7 +225,7 @@ flutter {
 
 同时，我们可以根据自己的实际去制定 flutter 的 source 路径。也通过 repo 将原生的module 和 dart 的lib目录，分成2个git仓库。就完美实现了代码的隔离。对于原生开发来说，后面的构建打包等持续集成都不会收到 flutter 的影响。
 
-混合工程的架构大概如下：
+混合工程的架构如下：
 
 ![](./imgs/hybrid.png)
 
@@ -279,11 +281,11 @@ adb forward tcp:xxxx tcp:yyyy
 
 然后启动这个调试器，就可以进行 dart 的断点调试了。
 
-### 调用原生和插件开发
+### 原生能力和插件开发
 
 在 flutter 开发中，我们需要经常使用原生的功能，具体的可以参考 [官方文档](https://flutter-io.cn/docs/development/platform-integration/platform-channels)， native 和 flutter 通过传递消息，来实现互相调用。
 
-大概的架构图如下
+架构图如下
 ![](https://flutter-io.cn/images/PlatformChannels.png)
 
 查看源码，可以看到 flutter 包括 4 中 Channel 类型。
@@ -294,37 +296,65 @@ adb forward tcp:xxxx tcp:yyyy
 * `MethodChannel`和 `OptionalMethodChannel`是发送方法调用的通道
 * `EventChannel` 是发送事件流 `stream` 的通道。
 
-在对这些功能进行的封装, 官方提供了 `Plugin` 的概念。也提供了 `Plugin` 工程的脚手架。创建一个 `Plugin` 工程，包括三端的 lib 代码，也包括了一个 `example` 目录。里面是一个依赖了插件的 flutter 应用工程。具体可以参考[插件文档](https://flutter-io.cn/docs/development/packages-and-plugins/using-packages)
+在 Flutter 的封装中，官方对纯 Flutter 的 library 定义为 `Package`, 对调用了原生能力的 libraray 定义为 `Plugin`。
 
-在实际的操作中，我们发现，flutter的插件工程是通过 `flutter.gradle` 依赖的 android module， 并且如果在插件的 dart 代码中依赖了其他插件，原生部分代码，不能依赖到插件的原生 aar。这样每次编译的时候就会在 `GeneratedPluginRegistrant` 这个类中报错。
+官方同时也提供了 `Plugin` 工程的脚手架。通过 `flutter create --org {pkgname} --template=plugin xx` 创建一个 `Plugin` 工程。内部包括三端的 library 代码，也包括了一个 `example` 目录。里面是一个依赖了此插件的 flutter 应用工程。具体可以参考[插件文档](https://flutter-io.cn/docs/development/packages-and-plugins/using-packages)
 
-这是为什么呢，通过比较，我们会发现 Flutter 应用工程对比插件工程，在`settings.gradle` 中有一些不一样。应用的工程中，有如下一段代码
+在实践中，我们可以发现 Plugin 的依赖关系如下。
+例如我们的 Flutter 应用叫 `MyApp`, 里面依赖了一个 `Plugin` 叫做 `MyPlugin`。那么，在 Andorid APP 中，库依关系如下图
+
+![](./imgs/plugin_depen.png)
+
+但是如果我们在创建插件工程的时候，原生部分代码，不能依赖到插件的原生 aar。这样每次编译的时候就会在 `GeneratedPluginRegistrant` 这个类中报错,依赖关系就变成了下图
+
+![](./imgs/plugin_depen1.png)
+
+我们会发现红色虚线部分的依赖在插件工程中是不存在的。
+
+仔细思考一下会发现，其实我们在 Flutter 应用工程中使用 `Plugin` 的时候，只是在 `pubspec.yaml` 中添加了插件的依赖。原生部分是怎么依赖到插件的呢？
+
+通过比较 `flutter create xx`(应用工程) 和 `flutter create  --template=plugin` (插件工程) ，我们会发现在`settings.gradle` 中有一些不一样。应用工程中，有如下一段自动生成的 gradle 代码
 
 ![](./imgs/settings-gradle.png)
 
-gradle 会去读取一个 `.flutter-plugins` 文件。从这里面读取到插件的原生工程地址，include 进来并制定了 path。我们也可以大致猜测到，flutter的 gradle 脚本里面会把自己include进来的插件工程全部依赖一遍。
+gradle 会去读取一个 `.flutter-plugins` 文件。从这里面读取到插件的原生工程地址，include 进来并制定了 path。
 
-从这个角度，我们会发现插件工程开发还是有一些规则上的限制的。必须写一些插件类。如果依赖其他的插件，必须写一段类似的脚本进行依赖。不够灵活。而且插件工程仍然需要至少一个android 同学 加一个 iOS 同学进行维护。
+我们查看一个 `.flutter-plugins` 文件：
 
-所以我们在涉及原生的 Flutter 基础库开发中，没有采用原生工程的方式。而是通过独立的 fluter package、独立的android ios module打包的形式开发。
+```shell
+path_provider=/Users/chenglei/flutter/.pub-cache/hosted/pub.flutter-io.cn/path_provider-1.1.0/
 
-### flutter基础设置之路
+```
 
-基于上一小节的结论，我们整改了自己的 flutter 基础设置建设。我们的基建大致从下面几个角度出发
+我们也可以大致猜测到，flutter的 gradle 脚本里面会把自己include进来的插件工程全部依赖一遍。
 
-* flutter dart代码的组织架构、状态管理库的选择、常用 ui 组件的封装
-* flutter 基于 app 现状，开发一套和原生相互调用的代码，把一些需要收拢入口的行为进行封装，例如网络请求、日志上报、页面埋点
-* 针对新技术的稳定性考虑，做好线上开关和异常收集
+从这个角度，我们发现插件工程开发还是有一些规则上的限制的。
+从开发的角度看，必须遵循脚手架的规范编写代码。如果依赖其他的插件，必须自己写脚本解决上面的依赖问题。
+从维护的角度看，插件工程仍然需要至少一个android 同学 加一个 iOS 同学进行维护。
 
-目前，ewt app在webview 的通信方面，是在消息到达另一端后，通过统一的路由调用格式进行路由调用。对于路由提供方来说，只识别路由协议，不关心调用端是哪一段。我们大概的协议是
+所以我们在涉及原生的 Flutter 基础库开发中，没有采用原生工程的方式。而是通过独立的 fluter package、独立的android ios module打二进制包的形式。
+
+### flutter基础设施之路
+
+基于上一小节的结论，我们开发了自己的一套 flutter 基础设置。我们的基建大致从下面几个角度出发
+
+* 利用现有能力：基于 Channel 调用原生的能力，例如网络、日志上报。可以收拢 APP 中这些基础操作
+* 质量和稳定性：Flutter 是新技术，我们如何在它上线的时候做到心中有底
+* 开发规范：从早期就定下第一版的代码结构、技术栈选择，对于后面的演进益大于弊
+
+#### 利用现有能力
+
+我们封装了 `Channel`，开发了一个 `DartBridge` 框架。负责原生和 Dart 的互相调用。在此之上，我们开发了网络库、统一跳转库等基础设施
+
+##### DartBridge
+
+反观 `e网通` APP 在 webview 的通信，是在消息到达另一端后，通过统一的路由调用格式进行路由调用。对于路由提供方来说，只识别路由协议，不关心调用端是哪一段。在一定程度上，我们也可以把统一的路由协议理解为“跨平台”。我们内部协议的格式是如下形式：
 
 `scheme://{"domain":"", "action":"", "params":""}`
 
-在一定程度上，我们也可以把统一的路由协议理解为“跨平台”
+所以在 Flutter 和原生的通信中，结合实际业务场景，我们没有使用 `MethodChannel`，而是使用了 `BasicMessageChannel`, 通过这一个 channel，发送最基本的路由协议。被调用方收到后，调用各自的路由库，返回调用结果给通道。我们封装了一套 **DartBridge** 来进行消息的传递。
 
-所以在原生的通信中，结合实际业务场景，我们没有使用 `MethodChannel`，而是使用了 `BasicMessageChannel`, 通过这一个 channel，发送最基本的路由协议。被调用方收到后，调用各自的路由库，返回调用结果给通道。我们封装了一套 `DartBridge` 来进行消息的传递。
-
-通过，阅读源码我们可以发现，Channel 的设计非常的完美。它解耦了消息的编解码方式，在 `Codec` 对象中，我们可以进行我们的自定义编码，例如序列化为 json 对象。
+通过阅读源码我们可以发现，Channel 的设计非常的完美。它解耦了消息的编解码方式，在 `Codec` 对象中，我们可以进行我们的自定义编码，例如序列化为 json 对象的 `JsonMessageCodec`。
 
 ```dart
 var _dartBridgeChannel = BasicMessageChannel(DART_BRIDGE_CHANNEL,JSONMessageCodec());
@@ -338,9 +368,7 @@ var _dartBridgeChannel = BasicMessageChannel(DART_BRIDGE_CHANNEL,JSONMessageCode
 
 基于这个架构模型，我们收到消息后，通过原生路由（例如 ARouter）方案，去进行相应的跳转或者服务调用。
 
-在此基础上，我们进行了如下几个基础库的封装
-
-#### 网络库 EIO
+##### 网络库 EIO
 
 Flutter 提供了自己的http 包。但是集成到原生app的时候，我们仍然希望网络这个基础操作的口子可以被统一管理。包括统一的https支持，统一的网络拦截操作，以及可能进行的统一网络监控和调优。所以在Android中，网络库我们选择调用 OKHttp。
 
@@ -372,9 +400,9 @@ nativeBytes = nativeBytes.map((it) {
 
 关于 utf8 和 byte 具体的编解码过程，我们不做赘述。感兴趣的同学可以参考一下[这篇文章](https://blog.csdn.net/sinat_38816924/article/details/78438070)
 
-### 统一跳转
+#### 统一路由跳转
 
-在 bridge 框架的基础上，我们对接原生的路由框架封装了我们自己的统一跳转。目前我们的架构还比较简单，采用了还是多容器的架构，在业务上去规避这点。我们的容器页面其实就是一个 `FlutterActivity`，我们给容器也设置了一个 path，原生在跳转flutter的时候，其实是跳转到了这个容器页。在容器页中，拿到我们实际的 Flutter path 和 参数。伪代码如下：
+在 `DartBridge` 框架的基础上，我们对接原生的路由框架封装了我们自己的统一跳转。目前我们的架构还比较简单，采用了还是多容器的架构，在业务上去规避这点。我们的容器页面其实就是一个 `FlutterActivity`，我们给容器也设置了一个 path，原生在跳转flutter的时候，其实是跳转到了这个容器页。在容器页中，拿到我们实际的 Flutter path 和 参数。伪代码如下：
 
 ```kotlin
 val extra = intent?.extras
@@ -407,5 +435,110 @@ val extra = intent?.extras
 
 在 Andorid 中，我提供了一个 `pretreatment` 函数，在 `ARouter` 的 `PretreatmentService` 中调用进行处理。返回最终的路由 path 和 参数。
 
-### 线上开关
-为了保证新技术的稳定，我在 Flutter 基础 SDK 中，提供了一个全局开关的配置。
+### 质量和稳定性
+
+**线上开关**
+
+为了保证新技术的稳定，在 Flutter 基础 SDK 中，我们提供了一个全局开关的配置。这个开关目前还是高粒度的，控制在进入 Flutter 页面的时候是否跳转容器页。
+在开关处理的初始化中，需要提供 2 个参数
+* 是否允许线上打开 Flutter 页面
+* 在不能打开 Flutter 页面的时候，提供一个 Flutter 和 native 页面的路由映射表。跳转到对应的原生页面或者报错页。
+
+线上开关可以和 APP 现有的无线配置中心对接。如果线上出现 Flutter 的质量问题。我们可以下发配置来控制页面跳转实现降级。
+
+**异常收集**
+
+在原生开发中，我们会使用例如 `bugly` 之类的工具查看线上收集的 crash 异常堆栈。Flutter 我们应该怎么做呢？在开发阶段，我们经常会发现 Flutter 出现一个报错页面。
+阅读源码，我们可以发现其实这个错误的显示是一个 Widget:
+
+在 `ComponentElement` 的 `performRebuild` 函数中有如下调用
+
+![](./imgs/errorwidgetsource.png)
+
+在调用 build 方法 ctach 到异常的时候，会返回显示一个 `ErrorWidget`。进一步查看会发现，它的 builder 是一个 static 的函数表达式。
+
+`(FlutterErrorDetails details) => ErrorWidget(details.exception)`
+
+它的参数最终也返回了一个私有的函数表达式 `_debugReportException`
+
+![](./imgs/onError.png)
+
+最终这里会调用 onError 函数，可以发现它也是一个 static 的函数表达式
+
+那么对于异常捕获，我们只需要重写下面 2 个函数就可以进行 build 方法中的视图报错
+
+* `ErrorWidget.builder`
+```dart
+ErrorWidget.builder = (details) {
+  return YourErrorWidget();
+};
+```
+* `FlutterError.onError`
+```dart
+FlutterError.onError = (FlutterErrorDetails details) {
+  // your log report
+};
+```
+
+到这一步，我们进行了视图的异常捕获。在 dart 的异步操作中抛出的异常又该如何捕获呢。查询资料我们得到如下结论：
+
+在 Flutter 中有一个 `Zone` 的概念，它代表了当前代码的异步操作的一个独立的环境。Zone 是可以捕获、拦截或修改一些代码行为的
+
+最终，我们的异常收集代码如下
+
+```dart
+
+void main() {
+  runMyApp();
+}
+
+runMyApp() {
+  ErrorHandler.flutterErrorInit();  // 设置同步的异常处理需要的内容
+  runZoned(() => runApp(MyApp()), // 在 zone 中执行 MyApp
+      zoneSpecification: null,
+      onError: (Object obj, StackTrace stack) {
+        // Zone 中的统一异常捕获
+    ErrorHandler.reportError(obj, stack);
+  });
+}
+```
+
+### 开发规范
+
+在开发初期，我们就内部商议定下了我们的 Flutter 开发规范。重点在代码的组织结构和状态管理库。
+开发结构我们考虑到未来有新增多数 Flutter 代码的可能，我们选择按照业务分模块管理各自的目录。
+
+```
+.
++-- lib
+|   +-- main.dart
+|   +-- README.md
+|   +-- business
+|       +-- business1
+|           +-- module1
+|               +-- business1.dart
+|               +-- store
+|               +-- models
+|               +-- pages
+|               +-- widgets
+|               +-- repositories
+|               +-- common
+|                   +-- ui
+|                   +-- utils
+|   +--comlib
+|       +-- router
+|       +-- network
+```
+
+在每个业务中，根据页面和具体的视图模块，分为了 `page` 和 `widgets` 的概念。`store` 中，我们会存放相关的状态管理。`repositories` 中我们要求业务把各自的逻辑和纯异步操作抽象为独立的一层。每个业务早期可以维护一个自己的 common， 可以在迭代中不停的抽象自己的 pakcage，并沉淀到最终面向每个人的 comlib。这样，基本可以保证在迭代中避免大家重复造轮子导致的代码冗余混乱。
+
+在状态管理的技术选型上，我们调研了包括 `Bloc`、'redux` 和 `mobx`。我们的结论是
+
+* `flutter-redux` 的概念和设计非常的优秀，但是适合统一的全局状态管理，其实和组件的分割又有很大的矛盾。在开源方案中，我们发现 `fish-redux` 很好的解决了这个问题。
+* `Bloc` 的大致思路其实和 redux 有很高的相似度。但是功能还是不如 redux 多。
+* `mobx`，代码简单，上手快。基本上搞清楚 `Observables`、`Actions`和`Reactions`几个概念就可以愉快的开发。
+* 
+最终处于上手成本和代码复杂度的考虑，我们选择了 mobx 作为我们的状态管理组件。
+
+## 总结
+到这里，我分享了一些 Flutter 的原理和我们的一些实践。希望能和一些正在研究 Flutter 的同学进行交流和学习。我们的 Flutter 在基础设施开发的同时，还剥离编写了一些 `升学e网通` APP 上的页面和一些基础的 ui 组件库。在未来我们会尝试在一些老的页面中，上线 Flutter 版本。并且研究更好的基础库、异常收集平台、工具链优化和单容器相关的内容。
