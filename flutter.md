@@ -227,7 +227,7 @@ flutter {
 
 混合工程的架构如下：
 
-![](./imgs/hybrid.png)
+![](https://github.com/shaomaicheng/feblog/raw/master/imgs/hybrid.png)
 
 ### 混合工程启动和调试
 在一个 flutter 工程中，我们一般是使用 `flutter run` 命令启动一个 flutter 应用。这时候我们就会有关注到：混合工程中，我们进入app会先进入原生页面，如何再进入 flutter 页面。那么我们如何使用热重载和调试功能呢。
@@ -255,23 +255,23 @@ http://127.0.0.1:54946/
 
 这端。这个地址，我们可以打开一个关于 dart 的性能和运行情况的展示页面。
 
-![](./imgs/dartvm.png)
+![](https://github.com/shaomaicheng/feblog/raw/master/imgs/dartvm.png)
 
 我们记录下这个端口 xxxx
 
 然后通过 `adb logcat | grep Observatory` 查看手机的端口，可以看到如下输出
 
-![](./imgs/device_ob.png)
+![](https://github.com/shaomaicheng/feblog/raw/master/imgs/device_ob.png)
 
 我们把最后一个地址输入到手机的浏览器，可以发现手机上也可以打开这个页面
 
-![](./imgs/device-obv-url.png)
+![](https://github.com/shaomaicheng/feblog/raw/master/imgs/device-obv-url.png)
 
 我们可以理解成这里是做了一次端口映射，设备上的端口记录为 yyyy
 
 在 Android Studio 中，我们在 run -> Edit Configurations 里面，新建一个 `dart remote debug`, 填写 xxxx 端口。
 
-![](/imgs/debug_break.png)
+![](https://github.com/shaomaicheng/feblog/raw/master/imgs/debug_break.png)
 
 如果不成功，可以手动 forward 一下
 
@@ -290,7 +290,7 @@ adb forward tcp:xxxx tcp:yyyy
 
 查看源码，可以看到 flutter 包括 4 中 Channel 类型。
 
-![](./imgs/channeltypes.png)
+![](https://github.com/shaomaicheng/feblog/raw/master/imgs/channeltypes.png)
 
 * `BasicMessageChannel` 是发送基本的信息内容的通道
 * `MethodChannel`和 `OptionalMethodChannel`是发送方法调用的通道
@@ -303,11 +303,11 @@ adb forward tcp:xxxx tcp:yyyy
 在实践中，我们可以发现 Plugin 的依赖关系如下。
 例如我们的 Flutter 应用叫 `MyApp`, 里面依赖了一个 `Plugin` 叫做 `MyPlugin`。那么，在 Andorid APP 中，库依关系如下图
 
-![](./imgs/plugin_depen.png)
+![](https://github.com/shaomaicheng/feblog/raw/master/imgs/plugin_depen.png)
 
 但是如果我们在创建插件工程的时候，原生部分代码，不能依赖到插件的原生 aar。这样每次编译的时候就会在 `GeneratedPluginRegistrant` 这个类中报错,依赖关系就变成了下图
 
-![](./imgs/plugin_depen1.png)
+![](https://github.com/shaomaicheng/feblog/raw/master/imgs/plugin_depen1.png)
 
 我们会发现红色虚线部分的依赖在插件工程中是不存在的。
 
@@ -315,7 +315,7 @@ adb forward tcp:xxxx tcp:yyyy
 
 通过比较 `flutter create xx`(应用工程) 和 `flutter create  --template=plugin` (插件工程) ，我们会发现在`settings.gradle` 中有一些不一样。应用工程中，有如下一段自动生成的 gradle 代码
 
-![](./imgs/settings-gradle.png)
+![](https://github.com/shaomaicheng/feblog/raw/master/imgs/settings-gradle.png)
 
 gradle 会去读取一个 `.flutter-plugins` 文件。从这里面读取到插件的原生工程地址，include 进来并制定了 path。
 
@@ -362,9 +362,9 @@ var _dartBridgeChannel = BasicMessageChannel(DART_BRIDGE_CHANNEL,JSONMessageCode
 
 在实际开发中，我们可能想要查询消息内容。如果消息的内容是获取原生的内容，例如一个学生的作业总数，我们希望在原生提供服务前，不阻塞自己的开发。并且在不修改业务代码的情况下获取到路由的mock数据。所以我们在路由的内部增加了拦截器和mock服务的功能。在sdk初始化的时候，我们可以通过对象配置的方式，配置一些对应 domain、action的mock数据。
 
-整个 DartBridge 的架构大致如下
+整个 DartBridge 的架构如下
 
-![](./imgs/dartbridge.png)
+![](https://github.com/shaomaicheng/feblog/raw/master/imgs/dartbridge.png)
 
 基于这个架构模型，我们收到消息后，通过原生路由（例如 ARouter）方案，去进行相应的跳转或者服务调用。
 
@@ -453,7 +453,7 @@ val extra = intent?.extras
 
 在 `ComponentElement` 的 `performRebuild` 函数中有如下调用
 
-![](./imgs/errorwidgetsource.png)
+![](https://github.com/shaomaicheng/feblog/raw/master/imgs/errorwidgetsource.png)
 
 在调用 build 方法 ctach 到异常的时候，会返回显示一个 `ErrorWidget`。进一步查看会发现，它的 builder 是一个 static 的函数表达式。
 
@@ -461,7 +461,7 @@ val extra = intent?.extras
 
 它的参数最终也返回了一个私有的函数表达式 `_debugReportException`
 
-![](./imgs/onError.png)
+![](https://github.com/shaomaicheng/feblog/raw/master/imgs/onError.png)
 
 最终这里会调用 onError 函数，可以发现它也是一个 static 的函数表达式
 
